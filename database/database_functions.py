@@ -1,4 +1,7 @@
 import sqlite3 as sql
+from matplotlib import pyplot as plt
+from matplotlib import image as mpimg
+import numpy as np
 
 db_name = "object-detection.db"
 
@@ -186,3 +189,62 @@ def get_objects(limit = None):
         return images
     else:   
         print("No recorded objects")   
+
+def get_image_and_bbs(image_id):
+
+    query = f"SELECT image_path FROM images WHERE image_id = {image_id}"
+
+    with sql.connect("object-detection.db") as db:
+
+        cur = db.cursor()
+        cur.execute(query)
+        path = cur.fetchone()[0]
+
+    query = f"SELECT DISTINCT a.animal_name FROM animals a JOIN objects o ON a.animal_id = o.animal_id WHERE o.image_id = {image_id}"
+    
+    with sql.connect("object-detection.db") as db:
+
+        cur = db.cursor()
+        cur.execute(query)
+        animals = cur.fetchall()
+
+    img = mpimg.imread(path)
+    im_height, im_width, _ = img.shape
+    animals = [a[0] for a in animals]
+    title = "Picture of " + ' and '.join(animals) + f"  ({im_height}x{im_width})\n"
+
+    query = f"SELECT x_center, y_center, width, height FROM objects WHERE image_id = {image_id}"
+
+    with sql.connect("object-detection.db") as db:
+
+        cur = db.cursor()
+        cur.execute(query)
+        bbs = cur.fetchall()
+
+    x_centers = []
+    y_centers = []
+    widths = []
+    heights = []
+
+    for x_center, y_center, width, height in bbs:
+        x_centers.append(im_width * x_center)
+        y_centers.append(im_height * y_center)
+        widths.append(width * im_width)
+        heights.append(height * im_height)
+    
+    y_mins = np.array(y_centers) - np.array(heights) / 2
+    y_maxs = np.array(y_centers) + np.array(heights) / 2
+
+    x_mins = np.array(x_centers) - np.array(widths) / 2
+    x_maxs = np.array(x_centers) + np.array(widths) / 2
+
+    plt.scatter(x_centers, y_centers, color = 'black', marker='+', s=5)
+    plt.vlines(x_mins, y_mins, y_maxs, color='black')
+    plt.vlines(x_maxs, y_mins, y_maxs, color='black')
+
+    plt.hlines(y_mins, x_mins, x_maxs, color='black')
+    plt.hlines(y_maxs, x_mins, x_maxs, color='black')
+    
+
+    plt.imshow(img)
+    plt.title(title)
