@@ -25,6 +25,8 @@ def create_table(name, columns):
                 print(query)
                 print("Could not create table")
                 raise Exception
+            
+    pass
 
 def get_schema_info():
 
@@ -48,10 +50,10 @@ def get_table_info(name):
         cur.execute(query)
         info = cur.fetchone()
 
-        if not info:
-            print(f"Table {name} doesn't exist")
-        else:
-            return info
+    if not info:
+        print(f"Table {name} doesn't exist")
+    else:
+        return info
         
 def insert_animal(animal_name):
 
@@ -68,6 +70,8 @@ def insert_animal(animal_name):
             db.rollback()
             print("Insert error: ", query)
             raise Exception
+        
+    pass
         
 def get_all_animals():
 
@@ -95,6 +99,8 @@ def insert_image(image_path):
             db.rollback()
             print("Insert error: ", query)
             raise Exception
+        
+    pass
 
 def get_images(limit = None):
 
@@ -112,4 +118,71 @@ def get_images(limit = None):
     if images:
         return images
     else:   
-        print("No recorded images")     
+        print("No recorded images")
+
+def find_image_id(image_path):
+
+    query = f"SELECT image_id FROM images WHERE image_path = '{image_path}'"
+
+    with sql.connect("object-detection.db") as db:
+
+        cur = db.cursor()
+        cur.execute(query)
+        id = cur.fetchone()
+
+    if id:
+        return id
+    else:
+        print("No image found with this path")
+        return None
+
+def find_animal_id(animal_name):
+
+    query = f"SELECT animal_id FROM animals WHERE animal_name = '{animal_name}'"     
+
+    with sql.connect("object-detection.db") as db:
+
+        cur = db.cursor()
+        cur.execute(query)
+        id = cur.fetchone()
+
+    if id:
+        return id
+    else:
+        print("No animal found with this path")
+        return None
+
+def insert_object(image_id, animal_id, x_center, y_center, width, height):
+
+    query = f"INSERT INTO objects VALUES ({image_id}, {animal_id}, {x_center}, {y_center}, {width}, {height})"
+
+    with sql.connect("object-detection.db") as db:
+
+        try:
+            cur = db.cursor()
+            cur.execute(query)
+            db.commit()
+        except:
+            db.rollback()
+            print("Insert error: ", query)
+            raise Exception
+        
+    pass
+
+def get_objects(limit = None):
+
+    query = "SELECT * FROM objects"
+
+    if limit is not None:
+        query += f" LIMIT {limit}"
+
+    with sql.connect("object-detection.db") as db:
+
+        cur = db.cursor()
+        cur.execute(query)
+        images = cur.fetchall()
+
+    if images:
+        return images
+    else:   
+        print("No recorded objects")   

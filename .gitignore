@@ -1,3 +1,4 @@
 datasets
 object-detection.db
 notebook.ipynb
+__pycache__
