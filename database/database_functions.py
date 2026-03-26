@@ -200,16 +200,15 @@ def get_image_and_bbs(image_id):
     colors = mcolors.CSS4_COLORS
     colors = random.sample(sorted(colors), len(all_animals))
 
-    query = f"SELECT image_path FROM images WHERE image_id = {image_id}"
+    query = f"SELECT image_path, image_height, image_width FROM images WHERE image_id = {image_id}"
 
     with sql.connect("object-detection.db") as db:
 
         cur = db.cursor()
         cur.execute(query)
-        path = cur.fetchone()[0]
+        path, im_height, im_width = cur.fetchone()
 
     img = mpimg.imread(path)
-    im_height, im_width, _ = img.shape
 
     query = f"SELECT a.animal_name, o.x_center, o.y_center, o.width, o.height FROM objects o " \
             "JOIN animals a ON o.animal_id = a.animal_id " \
@@ -258,3 +257,26 @@ def get_image_and_bbs(image_id):
     plt.imshow(img)
     plt.title(title)
     plt.legend()
+
+def get_csv(table_name, header, save_path):
+
+    query = f"SELECT * FROM {table_name}"
+
+    with sql.connect("object-detection.db") as db:
+
+        cur = db.cursor()
+        cur.execute(query)
+        lines = cur.fetchall()
+
+    with open(save_path, "w") as f:
+
+        file = header + "\n"
+        for line in lines:
+            line = [str(l) for l in line]
+            file += ', '.join(line)
+            if line != lines[-1]:
+                file += "\n"
+
+        f.write(file)
+    
+    pass
