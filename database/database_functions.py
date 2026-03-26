@@ -90,9 +90,9 @@ def get_all_animals():
 
     return animals
 
-def insert_image(image_path):
+def insert_image(image_path, image_height, image_width, image_depth, folder):
 
-    query = f"INSERT INTO images(image_path) VALUES ('{image_path}')"
+    query = f"INSERT INTO images(image_path, image_height, image_width, image_depth, folder) VALUES ('{image_path}', {image_height}, {image_width}, {image_depth}, '{folder}')"
 
     with sql.connect(db_name) as db:
 
@@ -244,7 +244,7 @@ def get_image_and_bbs(image_id):
     x_maxs = np.array(x_centers) + np.array(widths) / 2
 
     arr_animal_names = np.array(animal_names)
-    for a in arr_animal_names:
+    for a in np.unique(arr_animal_names):
 
         plt.scatter(x_centers[arr_animal_names==a], y_centers[arr_animal_names==a], color = colors[all_animals.index(str(a))], marker='+', s=5, label = a)
         plt.vlines(x_mins[arr_animal_names==a], y_mins[arr_animal_names==a], y_maxs[arr_animal_names==a], color='black')
