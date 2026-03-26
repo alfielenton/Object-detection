@@ -1,6 +1,8 @@
 import sqlite3 as sql
 from matplotlib import pyplot as plt
 from matplotlib import image as mpimg
+from matplotlib import colors as mcolors
+import random
 import numpy as np
 
 db_name = "object-detection.db"
@@ -192,6 +194,12 @@ def get_objects(limit = None):
 
 def get_image_and_bbs(image_id):
 
+    all_animals = get_all_animals()
+    all_animals = [a[1] for a in all_animals]
+
+    colors = mcolors.CSS4_COLORS
+    colors = random.sample(sorted(colors), len(all_animals))
+
     query = f"SELECT image_path FROM images WHERE image_id = {image_id}"
 
     with sql.connect("object-detection.db") as db:
@@ -200,20 +208,12 @@ def get_image_and_bbs(image_id):
         cur.execute(query)
         path = cur.fetchone()[0]
 
-    query = f"SELECT DISTINCT a.animal_name FROM animals a JOIN objects o ON a.animal_id = o.animal_id WHERE o.image_id = {image_id}"
-    
-    with sql.connect("object-detection.db") as db:
-
-        cur = db.cursor()
-        cur.execute(query)
-        animals = cur.fetchall()
-
     img = mpimg.imread(path)
     im_height, im_width, _ = img.shape
-    animals = [a[0] for a in animals]
-    title = "Picture of " + ' and '.join(animals) + f"  ({im_height}x{im_width})\n"
 
-    query = f"SELECT x_center, y_center, width, height FROM objects WHERE image_id = {image_id}"
+    query = f"SELECT a.animal_name, o.x_center, o.y_center, o.width, o.height FROM objects o " \
+            "JOIN animals a ON o.animal_id = a.animal_id " \
+            f" WHERE image_id = {image_id}"
 
     with sql.connect("object-detection.db") as db:
 
@@ -221,30 +221,40 @@ def get_image_and_bbs(image_id):
         cur.execute(query)
         bbs = cur.fetchall()
 
+    animal_names = []
     x_centers = []
     y_centers = []
     widths = []
     heights = []
 
-    for x_center, y_center, width, height in bbs:
+    for animal_name, x_center, y_center, width, height in bbs:
+        animal_names.append(animal_name)
         x_centers.append(im_width * x_center)
         y_centers.append(im_height * y_center)
         widths.append(width * im_width)
         heights.append(height * im_height)
-    
+
+    x_centers = np.array(x_centers)
+    y_centers = np.array(y_centers)
+
     y_mins = np.array(y_centers) - np.array(heights) / 2
     y_maxs = np.array(y_centers) + np.array(heights) / 2
 
     x_mins = np.array(x_centers) - np.array(widths) / 2
     x_maxs = np.array(x_centers) + np.array(widths) / 2
 
-    plt.scatter(x_centers, y_centers, color = 'black', marker='+', s=5)
-    plt.vlines(x_mins, y_mins, y_maxs, color='black')
-    plt.vlines(x_maxs, y_mins, y_maxs, color='black')
+    arr_animal_names = np.array(animal_names)
+    for a in arr_animal_names:
 
-    plt.hlines(y_mins, x_mins, x_maxs, color='black')
-    plt.hlines(y_maxs, x_mins, x_maxs, color='black')
+        plt.scatter(x_centers[arr_animal_names==a], y_centers[arr_animal_names==a], color = colors[all_animals.index(str(a))], marker='+', s=5, label = a)
+        plt.vlines(x_mins[arr_animal_names==a], y_mins[arr_animal_names==a], y_maxs[arr_animal_names==a], color='black')
+        plt.vlines(x_maxs[arr_animal_names==a], y_mins[arr_animal_names==a], y_maxs[arr_animal_names==a], color='black')
+
+        plt.hlines(y_mins[arr_animal_names==a], x_mins[arr_animal_names==a], x_maxs[arr_animal_names==a], color='black')
+        plt.hlines(y_maxs[arr_animal_names==a], x_mins[arr_animal_names==a], x_maxs[arr_animal_names==a], color='black')
     
-
+    animal_names = list(set(animal_names))
+    title = "Pictre of " + ' and '.join(animal_names)
     plt.imshow(img)
     plt.title(title)
+    plt.legend()
