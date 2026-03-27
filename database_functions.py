@@ -1,18 +1,22 @@
-import sqlite3 as sql
+from mysql import connector
 from matplotlib import pyplot as plt
 from matplotlib import image as mpimg
 from matplotlib import colors as mcolors
 import random
 import numpy as np
 
-db_name = "object-detection.db"
+connect_args = {"host":"localhost", 
+                "username":"root", 
+                "password":"Art!ch0ke23",
+                "database":"objects"}
 
 def create_table(name, columns):
 
     query = f"CREATE TABLE {name} (" + ", ".join(columns) + ")"
-    exists_query = f"SELECT * FROM sqlite_schema WHERE type = 'table' AND name = '{name}'"
+    exists_query = f"SHOW TABLES LIKE {name}"
 
-    with sql.connect(db_name) as db:
+
+    with connector.connect(**connect_args) as db:
 
         cur = db.cursor()
         cur.execute(exists_query)
@@ -35,9 +39,9 @@ def create_table(name, columns):
 
 def get_schema_info():
 
-    query = f"SELECT * FROM sqlite_schema"
+    query = f"SHOW TABLES"
 
-    with sql.connect(db_name) as db:
+    with connector.connect(**connect_args) as db:
 
         cur = db.cursor()
         cur.execute(query)
@@ -47,13 +51,13 @@ def get_schema_info():
  
 def get_table_info(name):
 
-    query = f"SELECT * FROM sqlite_schema WHERE name = '{name}'"
+    query = f"DESCRIBE {name}"
 
-    with sql.connect(db_name) as db:
+    with connector.connect(**connect_args) as db:
 
         cur = db.cursor()
         cur.execute(query)
-        info = cur.fetchone()
+        info = cur.fetchall()
 
     if not info:
         print(f"Table {name} doesn't exist")
@@ -62,9 +66,9 @@ def get_table_info(name):
         
 def insert_animal(animal_name):
 
-    query = f"INSERT INTO animals (animal_name) VALUES ('{animal_name}')"
+    query = f"INSERT INTO animals (name) VALUES ('{animal_name}')"
 
-    with sql.connect(db_name) as db:
+    with connector.connect(**connect_args)  as db:
 
         try:
             cur = db.cursor()
@@ -82,7 +86,7 @@ def get_all_animals():
 
     query = f"SELECT * FROM animals"
 
-    with sql.connect(db_name) as db:
+    with connector.connect(**connect_args)  as db:
 
         cur = db.cursor()
         cur.execute(query)
@@ -92,9 +96,9 @@ def get_all_animals():
 
 def insert_image(image_path, image_height, image_width, image_depth, folder):
 
-    query = f"INSERT INTO images(image_path, image_height, image_width, image_depth, folder) VALUES ('{image_path}', {image_height}, {image_width}, {image_depth}, '{folder}')"
+    query = f"INSERT INTO images(path, height, width, depth, folder) VALUES ('{image_path}', {image_height}, {image_width}, {image_depth}, '{folder}')"
 
-    with sql.connect(db_name) as db:
+    with connector.connect(**connect_args)  as db:
 
         try:
             cur = db.cursor()
@@ -114,7 +118,7 @@ def get_images(limit = None):
     if limit is not None:
         query += f" LIMIT {limit}"
 
-    with sql.connect("object-detection.db") as db:
+    with connector.connect(**connect_args) as db:
 
         cur = db.cursor()
         cur.execute(query)
@@ -127,9 +131,9 @@ def get_images(limit = None):
 
 def find_image_id(image_path):
 
-    query = f"SELECT image_id FROM images WHERE image_path = '{image_path}'"
+    query = f"SELECT id FROM images WHERE path = '{image_path}'"
 
-    with sql.connect("object-detection.db") as db:
+    with connector.connect(**connect_args) as db:
 
         cur = db.cursor()
         cur.execute(query)
@@ -143,9 +147,9 @@ def find_image_id(image_path):
 
 def find_animal_id(animal_name):
 
-    query = f"SELECT animal_id FROM animals WHERE animal_name = '{animal_name}'"     
+    query = f"SELECT id FROM animals WHERE name = '{animal_name}'"     
 
-    with sql.connect("object-detection.db") as db:
+    with connector.connect(**connect_args)  as db:
 
         cur = db.cursor()
         cur.execute(query)
@@ -157,11 +161,11 @@ def find_animal_id(animal_name):
         print("No animal found with this path")
         return None
 
-def insert_object(image_id, animal_id, x_center, y_center, width, height):
+def insert_instance(image_id, animal_id, x_center, y_center, width, height):
 
-    query = f"INSERT INTO objects VALUES ({image_id}, {animal_id}, {x_center}, {y_center}, {width}, {height})"
+    query = f"INSERT INTO instances VALUES ({image_id}, {animal_id}, {x_center}, {y_center}, {width}, {height})"
 
-    with sql.connect("object-detection.db") as db:
+    with connector.connect(**connect_args) as db:
 
         try:
             cur = db.cursor()
@@ -174,14 +178,14 @@ def insert_object(image_id, animal_id, x_center, y_center, width, height):
         
     pass
 
-def get_objects(limit = None):
+def get_instances(limit = None):
 
-    query = "SELECT * FROM objects"
+    query = "SELECT * FROM instances"
 
     if limit is not None:
         query += f" LIMIT {limit}"
 
-    with sql.connect("object-detection.db") as db:
+    with connector.connect(**connect_args) as db:
 
         cur = db.cursor()
         cur.execute(query)
@@ -200,9 +204,9 @@ def get_image_and_bbs(image_id):
     colors = mcolors.CSS4_COLORS
     colors = random.sample(sorted(colors), len(all_animals))
 
-    query = f"SELECT image_path, image_height, image_width FROM images WHERE image_id = {image_id}"
+    query = f"SELECT path, height, width FROM images WHERE id = {image_id}"
 
-    with sql.connect("object-detection.db") as db:
+    with connector.connect(**connect_args) as db:
 
         cur = db.cursor()
         cur.execute(query)
@@ -210,11 +214,11 @@ def get_image_and_bbs(image_id):
 
     img = mpimg.imread(path)
 
-    query = f"SELECT a.animal_name, o.x_center, o.y_center, o.width, o.height FROM objects o " \
-            "JOIN animals a ON o.animal_id = a.animal_id " \
+    query = f"SELECT a.name, i.x_center, i.y_center, i.width, i.height FROM instances i " \
+            "JOIN animals a ON i.animal_id = a.id " \
             f" WHERE image_id = {image_id}"
 
-    with sql.connect("object-detection.db") as db:
+    with connector.connect(**connect_args) as db:
 
         cur = db.cursor()
         cur.execute(query)
@@ -262,7 +266,7 @@ def get_csv(table_name, header, save_path):
 
     query = f"SELECT * FROM {table_name}"
 
-    with sql.connect("object-detection.db") as db:
+    with connector.connect(**connect_args) as db:
 
         cur = db.cursor()
         cur.execute(query)
