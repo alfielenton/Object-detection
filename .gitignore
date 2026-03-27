@@ -1,6 +1,5 @@
 datasets
-object-detection.db
 notebook.ipynb
-__pycache__
-dashboard.pbix
 database-files
+__pycache__
+visualisations
