@@ -145,6 +145,50 @@ def find_image_id(image_path):
         print("No image found with this path")
         return None
 
+def find_image_path(image_id):
+
+    query = f"SELECT path FROM images WHERE id = {image_id}"
+
+    with connector.connect(**connect_args) as db:
+
+        cur = db.cursor()
+        cur.execute(query)
+        path = cur.fetchone()
+    
+    if path:
+        return path
+    else:
+        print("Image id not found")
+        return None
+
+def show_image(image_id):
+
+    query = f"SELECT path FROM images WHERE id = {image_id}"
+
+    with connector.connect(**connect_args) as db:
+
+        cur = db.cursor()
+        cur.execute(query)
+        path = cur.fetchone()
+
+    img = mpimg.imread(path[0])
+    plt.imshow(img)
+
+def count_animals_in_image(image_id):
+
+    query = "SELECT COUNT(animal_id) " \
+            "FROM instances " \
+            f"WHERE image_id = {image_id} " \
+            "GROUP BY image_id"
+    
+    with connector.connect(**connect_args) as db:
+
+        cur = db.cursor()
+        cur.execute(query)
+        res = cur.fetchone()
+
+    return res
+
 def find_animal_id(animal_name):
 
     query = f"SELECT id FROM animals WHERE name = '{animal_name}'"     
