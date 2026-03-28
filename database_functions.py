@@ -253,7 +253,7 @@ def get_instances(limit = None):
     else:   
         print("No recorded objects")   
 
-def get_image_and_bbs(image_id):
+def show_bbs(image_id, coords = False):
 
     all_animals = get_all_animals()
     all_animals = [a[1] for a in all_animals]
@@ -307,6 +307,10 @@ def get_image_and_bbs(image_id):
     for a in np.unique(arr_animal_names):
 
         plt.scatter(x_centers[arr_animal_names==a], y_centers[arr_animal_names==a], color = colors[all_animals.index(str(a))], marker='+', s=5, label = a)
+
+        if coords:
+            for x, y in zip(x_centers[arr_animal_names==a], y_centers[arr_animal_names==a]):
+                plt.text(x, y, f'({x/im_width:.2f},{y/im_height:.2f})')
         plt.vlines(x_mins[arr_animal_names==a], y_mins[arr_animal_names==a], y_maxs[arr_animal_names==a], color='black')
         plt.vlines(x_maxs[arr_animal_names==a], y_mins[arr_animal_names==a], y_maxs[arr_animal_names==a], color='black')
 
@@ -314,7 +318,7 @@ def get_image_and_bbs(image_id):
         plt.hlines(y_maxs[arr_animal_names==a], x_mins[arr_animal_names==a], x_maxs[arr_animal_names==a], color='black')
     
     animal_names = list(set(animal_names))
-    title = "Pictre of " + ' and '.join(animal_names)
+    title = "Picture of " + ' and '.join(animal_names)
     plt.imshow(img)
     plt.title(title)
     plt.legend()

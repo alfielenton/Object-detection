@@ -1,0 +1,94 @@
+Problem Images
+
+15870 -- bad labelling of turkeys
+16049 -- bad labelling
+16272 -- discard image
+16336 -- only one ladybug
+16439 -- only one zebra
+17149 -- only one hedgehog
+17690 -- bad labelling
+17817 -- only one cheetah
+17824 -- only one camel
+18029 -- only one scorpion
+18381 -- only one red panda
+18651 -- only one crocodile
+18794 -- only one spider
+18838 -- worm photo
+7813 -- poor labelling of ladybugs
+8308 -- magpies labelled as ravens
+8814 -- geese labelled incorrectly and all round odd photo
+13221 -- weird tiger photo
+15896 -- unlabelled buffalo
+5094 -- bad labelling of turkeys
+6790 -- bad labelling of zebras
+9231 -- unlabelled bull
+14838 -- unlabelled crocodile
+9905 -- goats labelled as sheep
+17018 -- worm photo
+17881 -- bad labelling of deer
+18326 -- check this image
+3006 -- bad labelling of swans
+3035 -- bad labelling of zebras
+4774 -- bad labelling of hippopotami
+5934 -- unlabelled animal
+6167 -- bad labelling of zebra
+11217 -- unlabelled elephant
+14828 -- only two scorpions
+16187 -- unlabelled horse
+2261 -- unlabelled magpie, eagle and raven
+2389 -- check this one
+2503 -- only one red panda
+2874 -- bad labelling zebra
+2954 -- bad bounding box
+3101 -- only one spider
+3275 -- only one spider
+3550 -- only one lion
+3572 -- only one hippo
+3684 -- only one snake
+3763 -- only one ladybug
+4352 -- only one raccoon
+4938 -- only one work and worm photo
+4975 -- only one ladybug
+5054 -- unlabelled sheep
+5153 -- check out this photo
+5474 -- unlabelled goose
+5596 -- discard image
+5802 -- bad labelling of zebras
+5994 -- check out this one
+6295 -- unlabelled elephant
+6470 -- unlabelled swan
+6570 -- only one zebra
+6571 -- close up of giraffe
+6940 -- discard image
+7015 -- only one scorpion
+7345 -- close up of zebra
+7452 -- only one rhino
+7547 -- unlabelled ostriches
+7672 -- unlabelled bear
+7689 -- unlabelled rabbits
+7694 -- unlabelled dog (dogs aren't currently recorded in database)
+7729 -- not a swan discard
+7793 -- only one scorpion
+8595 -- only one bull
+8642 -- bad labelling of horses
+9082 -- unlabelled panda
+9758 -- check out this one
+10461 -- ducks labelled as geese
+10485 -- discard image
+10818 -- ducks labelled as geese
+11766 -- discard image
+11919 -- only one snake
+12020 -- only one spider
+12517 -- only one raccoon
+12665 -- unlabelled goat
+12760 -- unlabelled horse
+13507 -- bad labelling zebras
+13825 -- discard image
+13888 -- unlabelled horse
+14256 -- only one work
+14549 -- duck labelled as geese
+14707 -- bad labelling of goats
+14817 -- discard image
+15057 -- discard image
+15147 -- unlabelled horse
+15301 -- discard image
