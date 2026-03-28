@@ -142,7 +142,6 @@ def find_image_id(image_path):
     if id:
         return id
     else:
-        print("No image found with this path")
         return None
 
 def find_image_path(image_id):
@@ -158,7 +157,6 @@ def find_image_path(image_id):
     if path:
         return path
     else:
-        print("Image id not found")
         return None
 
 def show_image(image_id):
@@ -173,6 +171,7 @@ def show_image(image_id):
 
     img = mpimg.imread(path[0])
     plt.imshow(img)
+    plt.show()
 
 def count_animals_in_image(image_id):
 
@@ -202,7 +201,21 @@ def find_animal_id(animal_name):
     if id:
         return id
     else:
-        print("No animal found with this path")
+        return None
+    
+def find_animal_name(animal_id):
+
+    query = f"SELECT name FROM animals WHERE id = {animal_id}"
+
+    with connector.connect(**connect_args)  as db:
+
+        cur = db.cursor()
+        cur.execute(query)
+        id = cur.fetchone()
+
+    if id:
+        return id
+    else:
         return None
 
 def insert_instance(image_id, animal_id, x_center, y_center, width, height):
@@ -305,6 +318,7 @@ def get_image_and_bbs(image_id):
     plt.imshow(img)
     plt.title(title)
     plt.legend()
+    plt.show()
 
 def get_csv(table_name, header, save_path):
 
