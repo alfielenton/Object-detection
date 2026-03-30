@@ -10,6 +10,29 @@ connect_args = {"host":"localhost",
                 "password":"Art!ch0ke23",
                 "database":"objects"}
 
+def get_wildlife_2_animals():
+
+    path = "datasets//wildlife 2//data.yaml"
+    animals_start = False
+    animals = []
+
+    with open(path, "r") as f:
+
+        for line in f.readlines():
+
+            if line.find("names:") != -1:
+                animals_start = True
+                continue
+
+            if animals_start:
+                line = line[:-1] if line.endswith("\n") else line
+                animal = line.split(' ')[-1].lower()
+                animals.append(animal)
+
+    return animals
+
+wildlife_2_animals = get_wildlife_2_animals()
+
 def create_table(name, columns):
 
     query = f"CREATE TABLE {name} (" + ", ".join(columns) + ")"
@@ -346,3 +369,125 @@ def get_csv(table_name, header, save_path):
         f.write(file)
     
     pass
+
+def relabel_image(image_id):
+
+    show_bbs(image_id)
+    wish_to_relabel = input(f"Are you sure you want to relabel image {image_id} (Y/N)? -- ")
+    if wish_to_relabel.lower() == "n":
+        print("Will not relabel image")
+        return
+
+    relabel_entirely = input("Do you wish to relabel entirely or to add further labels " \
+                                "(1 - relabel entirely, 2 - add further labels)? -- ")
+    
+    relabel_entirely = int(relabel_entirely) == 1
+
+    if relabel_entirely:
+        delete_query = f"DELETE FROM instances WHERE image_id = {image_id}"
+
+        with connector.connect(**connect_args) as db:
+
+            try:
+                cur = db.cursor()
+                cur.execute(delete_query)
+                db.commit()
+            except:
+                print("Delete query error: ", delete_query)
+                db.rollback()
+                raise Exception
+        
+    dim_query = f"SELECT height, width FROM images WHERE id = {image_id}"
+
+    with connector.connect(**connect_args) as db:
+
+        cur = db.cursor()
+        cur.execute(dim_query)
+        im_height, im_width = cur.fetchone()
+    
+    im_path = find_image_path(image_id)[0]
+    lab_path = im_path.replace("images", "labels")[:-3] + 'txt'
+
+    labelling_complete = False
+    label_writing_mode = "w" if relabel_entirely else "a"
+
+    while not labelling_complete:
+
+        animal_identified = False
+
+        print("\n\nBeginning new label: \n")
+        print("\tStart by identifying the type of animal you wish to label")
+        while not animal_identified:
+
+            show_bbs(image_id)
+            animal = input("\tWhat animal are you labelling? -- ").lower()
+            if find_animal_id(animal):
+                animal_identified = True
+                animal_id = find_animal_id(animal)[0]
+            else:
+                print("Animal not found in database")
+
+        print(f"\n\tFind the highest point of the {animal}")
+        show_bbs(image_id)
+        top_point = input(f"\tWhat value is the highest point of the {animal}? -- ")
+        top_point = int(top_point)
+
+        print(f"\n\tFind the eastest points of the {animal}")
+        show_bbs(image_id)
+        east_point = input(f"\tWhat value is the eastest point of the {animal}? -- ")
+        east_point = int(east_point)
+
+        print(f"\n\tFind the lowest point of the {animal}")
+        show_bbs(image_id)
+        bottom_point = input(f"\tWhat value is the lowest point of the {animal}? -- ")
+        bottom_point = int(bottom_point)
+
+        print(f"\n\tFind the westest point of the {animal}")
+        show_bbs(image_id)
+        west_point = input(f"\tWhat value is the westest point of the {animal}? -- ")
+        west_point = int(west_point)
+        
+        width = round((east_point - west_point) / im_width, 8)
+        height = round((bottom_point - top_point) / im_height, 8)
+        x_center = round(.5 * (east_point + west_point) / im_width, 8)
+        y_center = round(.5 * (top_point + bottom_point) / im_height, 8)
+
+        insert_instance(image_id, animal_id, x_center, y_center, width, height)
+        show_bbs(image_id)
+        y_n = input("\n\tAre you satisfied with this labelling (Y/N)? -- ")
+        satisfied = y_n.lower() == "y"
+
+        if satisfied:
+
+            with open(lab_path, label_writing_mode) as f:
+                f.write(f"{wildlife_2_animals.index(animal)} {x_center:.6f} {y_center:.6f} {width:.6f} {height:.6f}\n")
+            label_writing_mode = "a"
+        else:
+            print("\n\tDeleting this instance from database.")
+
+            delete_query = "DELETE FROM instances WHERE " \
+                            f"image_id = {image_id} AND " \
+                            f"animal_id = {animal_id} AND " \
+                            f"x_center = {x_center} AND " \
+                            f"y_center = {y_center} AND " \
+                            f"width = {width} AND " \
+                            f"height = {height}"
+            
+            with connector.connect(**connect_args) as db:
+
+                try:
+                    cur = db.cursor()
+                    cur.execute(delete_query)
+                    db.commit()
+                except:
+                    print("Delete query error: ", delete_query)
+                    db.rollback()
+                    raise Exception
+                
+        if satisfied:
+            y_n = input("\n\tHave you finished labelling all animals in the image (Y/N)? -- ")
+            labelling_complete = y_n.lower() == "y"
+        
+    if labelling_complete:
+        print("Labelling complete")
+        show_bbs(image_id)
