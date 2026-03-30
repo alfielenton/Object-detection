@@ -64,6 +64,7 @@ images_to_relabel = list(set([15870,
                      14707,
                      15147]))
 
+
 print("Number of images to relabel: ", len(images_to_relabel), "\n\n")
 
 for i, image in enumerate(images_to_relabel):
