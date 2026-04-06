@@ -4,6 +4,7 @@ from matplotlib import image as mpimg
 from matplotlib import colors as mcolors
 import random
 import numpy as np
+import cv2
 
 connect_args = {"host":"localhost", 
                 "username":"root", 
@@ -491,3 +492,75 @@ def relabel_image(image_id):
     if labelling_complete:
         print("Labelling complete")
         show_bbs(image_id)
+
+#########################################
+##FUNCTIONS FOR COUNTING OBJECTS MODELS##
+#########################################
+
+def select_data(N):
+
+    more_than_one_query = "SELECT im.id, COUNT(ins.animal_id) " \
+                          "FROM instances ins " \
+                          "JOIN images im " \
+                          "ON im.id = ins.image_id " \
+                          "GROUP BY ins.image_id " \
+                          "HAVING COUNT(ins.animal_id) > 1"
+    
+    one_query = "SELECT im.id, COUNT(ins.animal_id) " \
+                "FROM instances ins " \
+                "JOIN images im " \
+                "ON im.id = ins.image_id " \
+                "WHERE im.depth = 3 " \
+                "GROUP BY ins.image_id " \
+                "HAVING COUNT(ins.animal_id) = 1"
+    
+    with connector.connect(**connect_args) as db:
+
+        cur = db.cursor()
+
+        cur.execute(more_than_one_query)
+        more_than_one_images = cur.fetchall()
+
+        cur.execute(one_query)
+        one_images = cur.fetchall()
+
+    all_images = more_than_one_images + random.sample(one_images, N - len(more_than_one_images))
+    return all_images
+
+def make_model_data(train_prop, valid_prop = None, N = 5000):
+
+    if valid_prop is not None:
+        assert(train_prop + valid_prop < 1.)
+        train_size = int(N * train_prop)
+        valid_size = int(N * valid_prop)
+    else:
+        assert(train_prop < 1.)
+        train_size = int(N * train_prop)
+
+    sampled_data = select_data(N)
+    train_data = random.sample(sampled_data, train_size)
+    reduced_sample = [d for d in sampled_data if d not in train_data]
+
+    if valid_prop is not None:
+        valid_data = random.sample(reduced_sample, valid_size)
+        test_data = [d for d in reduced_sample if d not in valid_data]
+        return train_data, valid_data, test_data
+    else:
+        test_data = reduced_sample
+        return train_data, test_data
+    
+def build_image_batch(images):
+
+    batch = []
+    for im in images:
+
+        path = find_image_path(im)[0]
+        img = mpimg.imread(path)
+
+        img = cv2.resize(img, (970, 750))
+        img = img.transpose(2, 0, 1) / 255.
+        batch.append(img)
+
+    batch = np.stack(batch, axis=0)
+    return batch
+    
