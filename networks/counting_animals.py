@@ -44,7 +44,7 @@ class AnimalCounter(nn.Module):
         x = self.convolutional_layers(x)
 
         x = x.view(x.size(0), x.size(1), -1)
-        x = x + self.pos_enc
+        x = x + self.pos_enc.to(x.device)
         x = self.encoder_layers(x)
 
         x = x[:, 0, :]

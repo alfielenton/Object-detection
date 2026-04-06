@@ -503,6 +503,7 @@ def select_data(N):
                           "FROM instances ins " \
                           "JOIN images im " \
                           "ON im.id = ins.image_id " \
+                          "WHERE im.depth = 3 " \
                           "GROUP BY ins.image_id " \
                           "HAVING COUNT(ins.animal_id) > 1"
     
