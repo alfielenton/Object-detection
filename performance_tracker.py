@@ -37,6 +37,18 @@ class PerformanceTracker:
             self.current_loss_tracker[loss_type] = [loss]
         else:
             self.current_loss_tracker[loss_type].append(loss)
+
+    def check_early_stopping(self, threshold):
+        if not self.valid or self.epoch_counter <= threshold:
+            return
+        
+        loss_checks = self.epoch_loss_tracker["valid"][-threshold:]
+        if sorted(loss_checks) == loss_checks:
+            return True
+        else:
+            return False
+    
+    def end_forward_pass(self):
         self.forward_pass_counter += 1
 
     def record_test_performance(self, metric):
@@ -46,18 +58,19 @@ class PerformanceTracker:
         self.start_epoch_time = time.time()
         print(f"Epoch {self.epoch_counter + 1}:\n")
     
-    def summary_stats(self):
+    def summary_stats(self, loop_type):
         summ_stats = f"\t| Epoch {self.epoch_counter + 1} "
         summ_stats += f"| Pass {self.forward_pass_counter} "
-        summ_stats += f"| Last training loss {self.current_loss_tracker['train'][-1]:.3f} "
-        summ_stats += f"| Last validation loss {self.current_loss_tracker['valid'][-1]:.3f} " if self.valid else ""
-        summ_stats += f"| Last test metric {self.test_metric_tracker[-1]:.3f} "
+        if loop_type == 'training':
+            summ_stats += f"| Last training loss {self.current_loss_tracker['train'][-1]:.3f} "
+        else:
+            summ_stats += f"| Last validation loss {self.current_loss_tracker['valid'][-1]:.3f} " if self.valid else ""
 
         epoch_runtime = time.time() - self.start_epoch_time
         total_runtime = time.time() - self.time_called
 
         hrs, mins, secs = calculate_time(epoch_runtime)
-        summ_stats += f"| Epoch runtime {hrs}H:{mins}M:{secs}S"
+        summ_stats += f"| Epoch runtime {hrs}H:{mins}M:{secs}S "
 
         hrs, mins, secs = calculate_time(total_runtime)
         summ_stats += f"| Total runtime {hrs}H:{mins}M:{secs}S |"
@@ -66,17 +79,18 @@ class PerformanceTracker:
     def end_epoch(self):
         
         for loss_type in self.current_loss_tracker:
+            
+            if self.current_loss_tracker[loss_type] is not None:
+                if self.forward_pass_loss_tracker[loss_type] is None:
+                    self.forward_pass_loss_tracker[loss_type] = self.current_loss_tracker[loss_type]
+                else:
+                    self.forward_pass_loss_tracker[loss_type] += self.current_loss_tracker[loss_type]
 
-            if self.forward_pass_loss_tracker[loss_type] is None:
-                self.forward_pass_loss_tracker[loss_type] = self.current_loss_tracker[loss_type]
-            else:
-                self.forward_pass_loss_tracker[loss_type] += self.current_loss_tracker[loss_type]
-
-            avg_epoch_loss = sum(self.current_loss_tracker[loss_type]) / len(self.current_loss_tracker[loss_type])
-            if self.epoch_loss_tracker[loss_type] is None:
-                self.epoch_loss_tracker[loss_type] = [avg_epoch_loss]
-            else:
-                self.epoch_loss_tracker[loss_type].append(avg_epoch_loss)
+                avg_epoch_loss = sum(self.current_loss_tracker[loss_type]) / len(self.current_loss_tracker[loss_type])
+                if self.epoch_loss_tracker[loss_type] is None:
+                    self.epoch_loss_tracker[loss_type] = [avg_epoch_loss]
+                else:
+                    self.epoch_loss_tracker[loss_type].append(avg_epoch_loss)
 
         self.current_loss_tracker = self.reset_tracker()
         self.forward_pass_counter = 0
@@ -86,7 +100,7 @@ class PerformanceTracker:
 
         summ_stats = f"\n\nEpoch {self.epoch_counter} completed...\n"
         summ_stats += f"Average training loss -- {self.epoch_loss_tracker['train'][-1]:.3f}\n"
-        summ_stats += f"Average valid loss -- {self.epoch_loss_tracker['valid'][-1]:.3f}\n"
+        summ_stats += f"Average valid loss -- {self.epoch_loss_tracker['valid'][-1]:.3f}\n" if self.valid else ""
         summ_stats += f"Testing metric -- {self.test_metric_tracker[-1]:.3f}\n"
         
         hrs, mins, secs = calculate_time(self.epoch_time)
@@ -108,12 +122,16 @@ class PerformanceTracker:
 
     def save_model(self, model, path):
         torch.save(model.state_dict(), path)
+        print("Model saved to ", path)
     
     def save_model_results(self, path):
 
         data = {'forward pass losses': self.forward_pass_loss_tracker, 
                 'average epoch losses': self.epoch_loss_tracker, 
-                'test metrics': self.test_metric_tracker}
+                'test metrics': self.test_metric_tracker,
+                'number of epochs':self.epoch_counter}
         
         with open(path, 'w') as f:
             json.dump(data, f)
+        
+        print("Mode results saved to ", path)

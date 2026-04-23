@@ -2,51 +2,41 @@ import torch
 from torch import nn
 
 
-class AnimalCounter(nn.Module):
+class SingularityCheck(nn.Module):
 
     def __init__(self):
 
         super().__init__()
         
         self.convolutional_layers = nn.Sequential(nn.Conv2d(3, 64, (10, 10), (4, 6)), 
-                                                  nn.ReLU(), 
+                                                  nn.ReLU(),
+                                                  nn.Dropout(0.5), 
                                                   nn.Conv2d(64, 64, (6, 5), (3, 3)), 
-                                                  nn.ReLU(), 
+                                                  nn.ReLU(),
+                                                  nn.Dropout(0.5), 
                                                   nn.Conv2d(64, 64, (3, 3), (2, 2)),
-                                                  nn.ReLU())
+                                                  nn.ReLU(),
+                                                  nn.Dropout(0.5)) 
         
-        pos_range = torch.arange(0, 64)[..., None]
-        dim_range = torch.arange(0, 780)
+        self.final_conv = nn.Sequential(nn.Conv2d(64, 64, (3, 4), (3, 2)),
+                                        nn.ReLU())
 
-        pair_index = dim_range // 2
-        angle = pos_range / (10000 ** (2 * pair_index / 780))
-
-        even_mask = dim_range % 2 == 0
-        odd_mask = dim_range % 2 == 1
-
-        angle[:, even_mask] = torch.sin(angle[:, even_mask])
-        angle[:, odd_mask] = torch.cos(angle[:, odd_mask])
-        self.pos_enc = angle
-
-        self.encoder = nn.TransformerEncoderLayer(780, 10, batch_first=True)
-        self.encoder_layers = nn.TransformerEncoder(self.encoder, 8)
-
-        self.feed_forward_layers = nn.Sequential(nn.Linear(780, 100),
-                                                 nn.ReLU(), 
-                                                 nn.Linear(100, 1), 
-                                                 nn.Sigmoid())
+        self.feed_forward_layers = nn.Sequential(nn.Linear(7680, 2048),
+                                                 nn.ReLU(),
+                                                 nn.Dropout(), ##CHANGE TO DROPOUT?
+                                                 nn.Linear(2048, 512),
+                                                 nn.ReLU(),
+                                                 nn.Dropout(), ##CHANGE TO DROPOUT?
+                                                 nn.Linear(512, 1))
         
     def forward(self, x):
 
-        if len(x.shape) == 3:
-            x = x.view(-1, *x.size())
+        batch_size = 1 if x.ndim == 3 else x.size(0)
         
         x = self.convolutional_layers(x)
+        x = self.final_conv(x)
+        
+        x = x.view(batch_size, -1)
 
-        x = x.view(x.size(0), x.size(1), -1)
-        x = x + self.pos_enc.to(x.device)
-        x = self.encoder_layers(x)
-
-        x = x[:, 0, :]
         x = self.feed_forward_layers(x)
         return x
