@@ -28,7 +28,7 @@ class AnimalDetector(nn.Module):
                                                 nn.Conv2d(215, 215, 2, 1), 
                                                 nn.ReLU())
         
-        self.convolutional_fc_layers = nn.Sequential(nn.LazyLinear(1024), 
+        self.convolutional_fc_layers = nn.Sequential(nn.Linear(324, 1024), 
                                                       nn.ReLU(), 
                                                       nn.Linear(1024, self.embedding_dims))
         
@@ -51,7 +51,7 @@ class AnimalDetector(nn.Module):
         self.b_decoder = nn.TransformerDecoder(self.b_decoder_layer, self.num_bc_decoder_layers)
 
         self.c_ffn = nn.Sequential(nn.Linear(self.embedding_dims, 1024),
-                                   nn.Linear(1024, self.num_classes + 1),
+                                   nn.Linear(1024, self.num_classes),
                                    nn.LogSoftmax(dim=1))
         
         self.b_ffn = nn.Sequential(nn.Linear(self.embedding_dims, 1024),
@@ -73,17 +73,25 @@ class AnimalDetector(nn.Module):
         padding_mask = []
 
         for seq in c_seqs:
-            one_hots = []
-            for c in seq:
-                oh = torch.zeros(self.num_classes)
-                oh[c] = 1.
-                one_hots.append(oh)
+
+            if seq:
+                one_hots = []
+                for c in seq:
+                    oh = torch.zeros(self.num_classes)
+                    oh[c] = 1.
+                    one_hots.append(oh)
+                
+                one_hots = torch.stack(one_hots).to(device)
+                c_embeds = self.c_embedder(one_hots)
+                pad_len = max_seq_len - c_embeds.size(0)
+                zero_pad = torch.zeros((pad_len, self.embedding_dims)).to(device)
+                c_embeds = torch.cat([c_start_embed, c_embeds, zero_pad])
+
+            else:
+                pad_len = max_seq_len
+                zero_pad = torch.zeros((pad_len, self.embedding_dims)).to(device)
+                c_embeds = torch.cat([c_start_embed, zero_pad])
             
-            one_hots = torch.stack(one_hots).to(device)
-            c_embeds = self.c_embedder(one_hots)
-            pad_len = max_seq_len - c_embeds.size(0)
-            zero_pad = torch.zeros((pad_len, self.embedding_dims)).to(device)
-            c_embeds = torch.cat([c_start_embed, c_embeds, zero_pad])
             batch.append(c_embeds)
 
             mask = [False] * (1 + len(seq)) + [True] * pad_len
@@ -100,10 +108,16 @@ class AnimalDetector(nn.Module):
         batch = []
         for seq in b_seqs:
 
-            b_embeds = self.b_embedder(torch.tensor(seq).to(device))
-            pad_len = max_seq_len - b_embeds.size(0)
-            zero_pad = torch.zeros((pad_len, self.embedding_dims)).to(device)
-            b_embeds = torch.cat([b_start_embed, b_embeds, zero_pad])
+            if seq:
+                b_embeds = self.b_embedder(torch.tensor(seq).to(device))
+                pad_len = max_seq_len - b_embeds.size(0)
+                zero_pad = torch.zeros((pad_len, self.embedding_dims)).to(device)
+                b_embeds = torch.cat([b_start_embed, b_embeds, zero_pad])
+
+            else:
+                zero_pad = torch.zeros((max_seq_len, self.embedding_dims)).to(device)
+                b_embeds = torch.cat([b_start_embed, zero_pad])
+                
             batch.append(b_embeds)
         
         return torch.stack(batch)

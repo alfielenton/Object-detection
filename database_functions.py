@@ -569,4 +569,110 @@ def build_image_batch(images):
 
     batch = torch.stack(batch, dim=0).to(torch.float32)
     return batch
-    
+
+
+##############################################
+#### FUNCTIONS FOR OBJECT DETECTION MODEL ####
+##############################################
+
+class ODDataHandler:
+
+    def __init__(self, animals, train_prop, valid_prop):
+
+        self.animals = animals
+        self.connector_args = connect_args
+        
+        with connector.connect(**self.connector_args) as db:
+
+            images_query = "SELECT DISTINCT(ins.image_id) " \
+                            "FROM instances ins " \
+                            "JOIN animals an " \
+                            "ON ins.animal_id = an.id " \
+                            "JOIN images im " \
+                            "ON im.id = ins.image_id " \
+                            "WHERE im.depth = 3 AND (" \
+                            + " OR ".join(["an.name = %s"] * len(self.animals)) + ")"
+            
+            cur = db.cursor()
+            cur.execute(images_query, self.animals)
+            images = [im[0] for im in cur.fetchall()]
+
+        self.complete_data = images
+        self.N = len(self.complete_data)
+
+        assert train_prop + valid_prop < 1, "Sum of training and validation proportions must be less than 1"
+
+        self.train_prop = train_prop
+        self.valid_prop = valid_prop
+        self.test_prop = 1 - (self.train_prop + self.valid_prop)
+
+        self.train_size = int(self.N * self.train_prop)
+        self.valid_size = int(self.N * self.valid_prop)
+        self.test_size = self.N - (self.valid_size + self.train_size)
+
+        self.train_data = random.sample(self.complete_data, self.train_size)
+
+        res = list(set(self.complete_data) - set(self.train_data))
+        self.valid_data = random.sample(res, self.valid_size)
+        self.test_data = list(set(res) - set(self.valid_data))
+
+    def build_xy_batch(self, image_ids):
+        
+        batch = []
+        for id in image_ids:
+
+            path = find_image_path(id)[0]
+            img = mpimg.imread(path)
+
+            img = cv2.resize(img, (500, 500))
+            img = img.transpose(2, 0, 1) / 255.
+            batch.append(torch.tensor(img))
+
+        x_ims = torch.stack(batch).to(torch.float32)
+
+        xc_seqs = []
+        xb_seqs = []
+
+        yc_seqs = []
+        yb_seqs = []
+
+        for id in image_ids:
+
+            xcs = []
+            xbs = []
+
+            with connector.connect(**self.connector_args) as db:
+                
+                count_instances_query = "SELECT COUNT(*) FROM instances WHERE image_id = %s"
+                cur = db.cursor()
+                cur.execute(count_instances_query, (id,))
+                num_instances = cur.fetchone()[0]
+
+                num_in = random.randint(0, num_instances)
+
+                get_instance_query = "SELECT an.name, ins.x_center, ins.y_center, ins.width, ins.height " \
+                                     "FROM instances ins " \
+                                     "JOIN animals an " \
+                                     "ON ins.animal_id = an.id " \
+                                     "WHERE ins.image_id = %s " \
+                                     "ORDER BY ins.x_center - .5 * ins.width"
+                
+                cur.execute(get_instance_query, (id,))
+                cs_and_bs = cur.fetchall()
+
+            for i in range(num_in):
+
+                ani, x_center, y_center, width, height = cs_and_bs[i]
+                xcs.append(self.animals.index(ani))
+                xbs.append((x_center, y_center, width, height))
+
+            xc_seqs.append(tuple(xcs))
+            xb_seqs.append(tuple(xbs))
+
+            yc = cs_and_bs[num_in][0] if num_in != num_instances else len(self.animals) + 1
+            yb = cs_and_bs[num_in][1:] if num_in != num_instances else tuple([0.] * 4)
+
+            yc_seqs.append(yc)
+            yb_seqs.append(yb)
+
+        return x_ims, xc_seqs, xb_seqs, yc_seqs, yb_seqs
