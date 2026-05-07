@@ -184,7 +184,7 @@ def find_image_path(image_id):
     else:
         return None
 
-def show_image(image_id):
+def show_image(image_id, resize = None):
 
     query = f"SELECT path FROM images WHERE id = {image_id}"
 
@@ -195,6 +195,9 @@ def show_image(image_id):
         path = cur.fetchone()
 
     img = mpimg.imread(path[0])
+    if resize is not None:
+        img = cv2.resize(img, resize)
+    
     plt.imshow(img)
     plt.show()
 
@@ -278,7 +281,7 @@ def get_instances(limit = None):
     else:   
         print("No recorded objects")   
 
-def show_bbs(image_id, coords = False):
+def show_bbs(image_id, coords = False, resize = None):
 
     all_animals = get_all_animals()
     all_animals = [a[1] for a in all_animals]
@@ -294,8 +297,12 @@ def show_bbs(image_id, coords = False):
         cur.execute(query)
         path, im_height, im_width = cur.fetchone()
 
-    img = mpimg.imread(path)
 
+    img = mpimg.imread(path)
+    if resize is not None:
+        img = cv2.resize(img, resize)
+        im_height, im_width = resize
+    
     query = f"SELECT a.name, i.x_center, i.y_center, i.width, i.height FROM instances i " \
             "JOIN animals a ON i.animal_id = a.id " \
             f" WHERE image_id = {image_id}"
