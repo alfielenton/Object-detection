@@ -633,8 +633,8 @@ class ODDataHandler:
         xc_seqs = []
         xb_seqs = []
 
-        yc_seqs = []
-        yb_seqs = []
+        ycs = []
+        ybs = []
 
         for id in image_ids:
 
@@ -654,10 +654,11 @@ class ODDataHandler:
                                      "FROM instances ins " \
                                      "JOIN animals an " \
                                      "ON ins.animal_id = an.id " \
-                                     "WHERE ins.image_id = %s " \
-                                     "ORDER BY ins.x_center - .5 * ins.width"
+                                     "WHERE ins.image_id = %s AND (" \
+                                     + " OR ".join(["an.name = %s"] * len(self.animals)) \
+                                     + ") ORDER BY ins.x_center - .5 * ins.width"
                 
-                cur.execute(get_instance_query, (id,))
+                cur.execute(get_instance_query, tuple([id] + list(self.animals)))
                 cs_and_bs = cur.fetchall()
 
             for i in range(num_in):
@@ -669,10 +670,10 @@ class ODDataHandler:
             xc_seqs.append(tuple(xcs))
             xb_seqs.append(tuple(xbs))
 
-            yc = cs_and_bs[num_in][0] if num_in != num_instances else len(self.animals) + 1
+            yc = self.animals.index(cs_and_bs[num_in][0]) if num_in != num_instances else len(self.animals)
             yb = cs_and_bs[num_in][1:] if num_in != num_instances else tuple([0.] * 4)
 
-            yc_seqs.append(yc)
-            yb_seqs.append(yb)
+            ycs.append(yc)
+            ybs.append(yb)
 
-        return x_ims, xc_seqs, xb_seqs, yc_seqs, yb_seqs
+        return x_ims, xc_seqs, xb_seqs, ycs, ybs

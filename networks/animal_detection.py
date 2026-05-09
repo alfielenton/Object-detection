@@ -51,7 +51,7 @@ class AnimalDetector(nn.Module):
         self.b_decoder = nn.TransformerDecoder(self.b_decoder_layer, self.num_bc_decoder_layers)
 
         self.c_ffn = nn.Sequential(nn.Linear(self.embedding_dims, 1024),
-                                   nn.Linear(1024, self.num_classes),
+                                   nn.Linear(1024, self.num_classes + 1),
                                    nn.LogSoftmax(dim=1))
         
         self.b_ffn = nn.Sequential(nn.Linear(self.embedding_dims, 1024),
