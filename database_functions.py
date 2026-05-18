@@ -676,4 +676,4 @@ class ODDataHandler:
             ycs.append(yc)
             ybs.append(yb)
 
-        return x_ims, xc_seqs, xb_seqs, ycs, ybs
+        return x_ims, xc_seqs, xb_seqs, torch.tensor(ycs), torch.tensor(ybs)

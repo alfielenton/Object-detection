@@ -19,18 +19,21 @@ class AnimalDetector(nn.Module):
         assert self.embedding_dims % self.num_attn_heads == 0, "embedding dims must be divisible by number of attention heads"
 
         self.convolutional_base = nn.Sequential(nn.Conv2d(3, 96, 12, 4), 
-                                                nn.ReLU(), 
+                                                nn.ReLU(),
+                                                nn.Dropout(0.1), 
                                                 nn.Conv2d(96, 125, 6, 3), 
                                                 nn.ReLU(), 
                                                 nn.MaxPool2d(2, 1), 
                                                 nn.Conv2d(125, 215, 3, 2), 
-                                                nn.ReLU(), 
+                                                nn.ReLU(),
+                                                nn.Dropout(0.1), 
                                                 nn.Conv2d(215, 215, 2, 1), 
                                                 nn.ReLU())
         
-        self.convolutional_fc_layers = nn.Sequential(nn.Linear(324, 1024), 
-                                                      nn.ReLU(), 
-                                                      nn.Linear(1024, self.embedding_dims))
+        self.convolutional_fc_layers = nn.Sequential(nn.Linear(324, 1024),
+                                                     nn.ReLU(),
+                                                     nn.Dropout(0.1), 
+                                                     nn.Linear(1024, self.embedding_dims))
         
         self.img_encoder_layer = nn.TransformerEncoderLayer(self.embedding_dims, self.num_attn_heads, batch_first=True)
         self.img_encoder = nn.TransformerEncoder(self.img_encoder_layer, self.num_encoder_layers)
@@ -51,10 +54,12 @@ class AnimalDetector(nn.Module):
         self.b_decoder = nn.TransformerDecoder(self.b_decoder_layer, self.num_bc_decoder_layers)
 
         self.c_ffn = nn.Sequential(nn.Linear(self.embedding_dims, 1024),
+                                   nn.Dropout(0.1),
                                    nn.Linear(1024, self.num_classes + 1),
                                    nn.LogSoftmax(dim=1))
         
         self.b_ffn = nn.Sequential(nn.Linear(self.embedding_dims, 1024),
+                                   nn.Dropout(0.1),
                                    nn.Linear(1024, self.ydims),
                                    nn.ReLU())
 
