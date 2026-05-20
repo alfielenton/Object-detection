@@ -677,3 +677,29 @@ class ODDataHandler:
             ybs.append(yb)
 
         return x_ims, xc_seqs, xb_seqs, torch.tensor(ycs), torch.tensor(ybs)
+    
+    def get_state(self):
+
+        state = {"train data":self.train_data, 
+                 "valid data":self.valid_data,
+                 "test data":self.test_data, 
+                 "animals":self.animals}
+        
+    def load_state(self, state):
+
+        self.train_data = state["train data"]
+        self.valid_data = state["valid data"]
+        self.test_data = state["test data"]
+        self.animals = state["animals"]
+
+        self.complete_data = self.train_data + self.valid_data + self.test_data
+        self.N = len(self.complete_data)
+
+        self.train_size = len(self.train_data)
+        self.train_prop = self.train_size / self.N
+
+        self.valid_size = len(self.valid_data)
+        self.valid_prop = self.valid_size / self.N
+
+        self.test_size = len(self.test_data)
+        self.test_prop = self.test_size / self.N
