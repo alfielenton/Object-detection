@@ -2,7 +2,5 @@ notebook.ipynb
 database-files
 __pycache__
 visualisations
-underwater
-wildlife
-wildlife 2
-zoo
+datasets
+checkpoints
