@@ -5,6 +5,7 @@ from matplotlib import colors as mcolors
 import random
 import numpy as np
 import torch
+from torchvision.transforms import v2
 import cv2
 
 connect_args = {"host":"localhost", 
@@ -584,7 +585,7 @@ class ODDataHandler:
         
         with connector.connect(**self.connector_args) as db:
 
-            images_query = "SELECT DISTINCT(ins.image_id) " \
+            images_query = "SELECT DISTINCT im.id " \
                             "FROM instances ins " \
                             "JOIN animals an " \
                             "ON ins.animal_id = an.id " \
@@ -616,18 +617,31 @@ class ODDataHandler:
         self.valid_data = random.sample(res, self.valid_size)
         self.test_data = list(set(res) - set(self.valid_data))
 
-    def build_xy_batch(self, image_ids):
+    def build_xy_batch(self, image_ids, augment:bool):
         
         batch = []
+        hflipped = []
+        vflipped = []
+
         for id in image_ids:
 
             path = find_image_path(id)[0]
             img = mpimg.imread(path)
 
             img = cv2.resize(img, (500, 500))
-            img = img.transpose(2, 0, 1) / 255.
-            batch.append(torch.tensor(img))
+            img = torch.tensor(img.transpose(2, 0, 1) / 255.)
 
+            hflip = random.choice([0., 1.]) if augment else 0.
+            vflip = random.choice([0., 1.]) if augment else 0.
+            img = v2.RandomHorizontalFlip(hflip)(img)
+            img = v2.RandomVerticalFlip(vflip)(img)
+
+            batch.append(img)
+            hflipped.append(hflip)
+            vflipped.append(vflip)
+
+            if img.size(0) != 3:
+                raise ValueError(f"Image {id} has depth of {img.size(0)}")
         x_ims = torch.stack(batch).to(torch.float32)
 
         xc_seqs = []
@@ -636,27 +650,35 @@ class ODDataHandler:
         ycs = []
         ybs = []
 
-        for id in image_ids:
+        for idx, id in enumerate(image_ids):
 
             xcs = []
             xbs = []
 
             with connector.connect(**self.connector_args) as db:
                 
-                count_instances_query = "SELECT COUNT(*) FROM instances WHERE image_id = %s"
+                count_instances_query = "SELECT COUNT(*) " \
+                                        "FROM instances ins " \
+                                        "JOIN animals an " \
+                                        "ON an.id = ins.animal_id " \
+                                        "WHERE ins.image_id = %s AND (" \
+                                        + " OR ".join(["an.name = %s"] * len(self.animals)) \
+                                        + ")"
                 cur = db.cursor()
-                cur.execute(count_instances_query, (id,))
+                cur.execute(count_instances_query, tuple([id] + list(self.animals)))
                 num_instances = cur.fetchone()[0]
 
                 num_in = random.randint(0, num_instances)
 
-                get_instance_query = "SELECT an.name, ins.x_center, ins.y_center, ins.width, ins.height " \
+                x_center_query = "ins.x_center AS x, " if not bool(hflipped[idx]) else "1 - ins.x_center AS x, "
+                y_center_query = "ins.y_center AS y, " if not bool(vflipped[idx]) else "1 - ins.y_center AS y, "
+                get_instance_query = "SELECT an.name, " + x_center_query + y_center_query + "ins.width, ins.height " \
                                      "FROM instances ins " \
                                      "JOIN animals an " \
                                      "ON ins.animal_id = an.id " \
                                      "WHERE ins.image_id = %s AND (" \
                                      + " OR ".join(["an.name = %s"] * len(self.animals)) \
-                                     + ") ORDER BY ins.x_center - .5 * ins.width"
+                                     + ") ORDER BY x - .5 * ins.width"
                 
                 cur.execute(get_instance_query, tuple([id] + list(self.animals)))
                 cs_and_bs = cur.fetchall()
@@ -684,6 +706,8 @@ class ODDataHandler:
                  "valid data":self.valid_data,
                  "test data":self.test_data, 
                  "animals":self.animals}
+        
+        return state
         
     def load_state(self, state):
 

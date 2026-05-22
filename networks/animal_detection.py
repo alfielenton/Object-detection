@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-import time
+import math
 
 class AnimalDetector(nn.Module):
 
@@ -44,6 +44,13 @@ class AnimalDetector(nn.Module):
         self.b_start_embedder = nn.Linear(1, self.embedding_dims)
         self.b_embedder = nn.Linear(self.ydims, self.embedding_dims)
 
+        pe = torch.zeros(100, self.embedding_dims)
+        pos = torch.arange(100)[..., None]
+        div = torch.exp(torch.arange(0, self.embedding_dims, 2) * (-math.log(10000) / self.embedding_dims))
+        pe[:, ::2] = torch.sin(pos * div)
+        pe[:, 1::2] = torch.cos(pos * div)
+        self.register_buffer('pe', pe[None, ...])
+
         self.object_decoder_layer = nn.TransformerDecoderLayer(self.embedding_dims, self.num_attn_heads, batch_first=True)
         self.object_decoder = nn.TransformerDecoder(self.object_decoder_layer, self.num_obj_decoder_layers)
 
@@ -61,7 +68,7 @@ class AnimalDetector(nn.Module):
         self.b_ffn = nn.Sequential(nn.Linear(self.embedding_dims, 1024),
                                    nn.Dropout(0.1),
                                    nn.Linear(1024, self.ydims),
-                                   nn.ReLU())
+                                   nn.Sigmoid())
 
     def find_max_seq_len(self, seqs):
         m = 0
@@ -126,12 +133,12 @@ class AnimalDetector(nn.Module):
             batch.append(b_embeds)
         
         return torch.stack(batch)
-
+    
     def forward(self, X, c_seqs, b_seqs):
 
         c_embeddings, obj_padding_mask = self.generate_class_embeddings(c_seqs, X.device)
         b_embeddings = self.generate_box_embedding(b_seqs, X.device)
-        obj_embedding = c_embeddings + b_embeddings
+        obj_embedding = c_embeddings + b_embeddings + self.pe[:, :c_embeddings.size(1), :]
 
         X = self.convolutional_base(X)
         X = X.view(X.size(0), X.size(1), -1)
