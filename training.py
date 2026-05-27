@@ -31,7 +31,7 @@ if loaded:
 NUM_HPS = 10
 NUM_EPOCHS = 150
 batch_size = 64
-early_stop_threshold = 8
+early_stop_threshold = 10
 hp_start = int(HPO.y_obs.size(0))
 
 for hp_index in range(hp_start, NUM_HPS):
@@ -39,10 +39,9 @@ for hp_index in range(hp_start, NUM_HPS):
     HPO.calculate_gp_pars()
     wd = HPO.select_new_x()
     CSL.save_hp(wd, hp_index)
-    CSL.save_hpo_state(HPO.get_state())
 
     dh = ODDataHandler(animals, train_prop, valid_prop)
-    if loaded:
+    if loaded and load["dh state"] is not None:
         dh.load_state(load["dh state"])
     CSL.save_data_handler_state(dh.get_state())
 
@@ -53,9 +52,7 @@ for hp_index in range(hp_start, NUM_HPS):
                            num_decoder_layers=num_decoder_layers,
                            num_attn_heads=num_attn_heads).to(device)
     
-
-    wd = HPO.select_new_x()
-    if not loaded:
+    if not loaded or load["loss scale params"] is None:
         log_sig_ce = torch.tensor(0., requires_grad=True, device=device)
         log_sig_mse = torch.tensor(0., requires_grad=True, device=device)
         log_sig_IoU = torch.tensor(0., requires_grad=True, device=device)
@@ -71,17 +68,19 @@ for hp_index in range(hp_start, NUM_HPS):
                             lr = 1e-4, 
                             weight_decay=wd)
     
-    if loaded:
+    if loaded and load["current model state"] is not None:
         model.load_state_dict(load["current model state"])
         optimiser.load_state_dict(load["current optimiser state"])
 
-    early_stop_counter = 0 if not loaded else load["early stop threshold"]
-    best_vloss = torch.inf if not loaded else load["best vloss"]
-    epoch_start = 0 if not loaded else load["num epochs"]
+    print(f"Selected weight decay: {wd}")
+    print(f"Optimiser weight decay: {optimiser.param_groups[0]["weight_decay"]}\n")
+    early_stop_counter = 0 if not loaded or load["early stop threshold"] is None else load["early stop threshold"]
+    best_vloss = torch.inf if not loaded or load["best vloss"] is None else load["best vloss"]
+    epoch_start = 0 if not loaded or load["num epochs"] is None else load["num epochs"]
 
     print("Model loaded. \nStarting training...")
     if loaded:
-        print(f"Loaded best vloss: {best_vloss:.3f}\n")
+        print(f"Loaded best vloss: {best_vloss:.3f}\nEarly stop counter: {early_stop_counter}")
     for epoch in range(epoch_start, NUM_EPOCHS):
 
         print(f"Epoch {epoch + 1}:\n")
@@ -127,7 +126,7 @@ for hp_index in range(hp_start, NUM_HPS):
         total_correct = 0
         total_tae = 0
 
-        print("\tStarting validation:\n")
+        print(f"\tStarting validation, vloss to beat: {best_vloss:.3f}\n")
         for idx, batch in enumerate(valid_dl):
 
             ce_loss, tse_loss, IoU_loss, num_correct, tae = calculate_validation_losses(device, model, dh, tuple(batch.tolist()))
@@ -180,7 +179,7 @@ for hp_index in range(hp_start, NUM_HPS):
             CSL.save_early_stop_threshold(early_stop_counter)
             if early_stop_counter > early_stop_threshold:
                 print("Stopped early")
-                CSL.save_epoch(epoch)
+                CSL.save_epoch(epoch + 1)
                 CSL.save_early_stopping()
                 break
 
@@ -189,4 +188,5 @@ for hp_index in range(hp_start, NUM_HPS):
 
     print("Model finished training")
     HPO.observe_y(best_vloss)
+    CSL.save_hpo_state(HPO.get_state())
     CSL.save_finished_training()

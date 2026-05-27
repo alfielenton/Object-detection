@@ -288,8 +288,11 @@ class CheckpointSaverLoader:
     def load_data_handler_state(self):
 
         datasets_path = self.main_dir + "//" + self.curr_hp + "//datasets//data.json"
-        with open(datasets_path, "r") as f:
-            state = json.load(f)
+        if os.path.exists(datasets_path):
+            with open(datasets_path, "r") as f:
+                state = json.load(f)
+        else:
+            return None
 
         return state
 
@@ -309,37 +312,28 @@ class CheckpointSaverLoader:
         self.get_curr_hp()
         hp_folder = self.main_dir + f"//hp_{hp_index}"
 
-        if os.path.exists(hp_folder):
-            return
-        
-        os.mkdir(hp_folder)
+        if not os.path.exists(hp_folder):
+            os.mkdir(hp_folder)
 
         with open(hp_folder + "//hp.txt", "w") as f:
             f.write(str(hp))
 
-        os.mkdir(hp_folder + "//models")
-        os.mkdir(hp_folder + "//metrics")
-        os.mkdir(hp_folder + "//datasets")
+        with open(hp_folder + "//hp.txt", "w") as f:
+            f.write(str(hp))
+
+        if not os.path.exists(hp_folder + "//models"):
+            os.mkdir(hp_folder + "//models")
+        
+        if not os.path.exists(hp_folder + "//metrics"):
+            os.mkdir(hp_folder + "//metrics")
+
+        if not os.path.exists(hp_folder + "//datasets"):
+            os.mkdir(hp_folder + "//datasets")
 
         if not os.path.exists(hp_folder + "//metrics//metrics.json"):
             with open(hp_folder + "//metrics//metrics.json", "w") as f:
                 metrics = {"finished training": False, 
-                        "stopped early": False,
-                        "early stop threshold":None, 
-                        "num epochs": 0, 
-                        "training losses": {"ce loss": [], 
-                                            "mse loss": [], 
-                                            "IoU loss": [],
-                                            "scaled loss params":[],
-                                            "scaled loss":[], 
-                                            "total loss": []},
-                        "validation losses": {"ce loss": [], 
-                                            "mse loss": [], 
-                                            "IoU loss": [],
-                                            "total loss": []}, 
-                        "validation metrics": {"accuracy": [], 
-                                                "mean absolute error":[],
-                                                "mean IoU loss":[]}}
+                           "stopped early":False}
                 
                 json.dump(metrics, f)
 
@@ -358,13 +352,16 @@ class CheckpointSaverLoader:
     def load_current_model_optimiser(self):
 
         model_dir = self.main_dir + "//" + self.curr_hp + "//models"
-        current_model_state = torch.load(model_dir + "//current_model.pth")
-        current_optimiser_state = torch.load(model_dir + "//optim.pth")
+        if os.listdir(model_dir):
+            current_model_state = torch.load(model_dir + "//current_model.pth")
+            current_optimiser_state = torch.load(model_dir + "//optim.pth")
 
-        with open(model_dir + "//loss_scale_params.json", "r") as f:
-            loss_scale_params = json.load(f)
+            with open(model_dir + "//loss_scale_params.json", "r") as f:
+                loss_scale_params = json.load(f)
 
-        return current_model_state, current_optimiser_state, loss_scale_params
+            return current_model_state, current_optimiser_state, loss_scale_params
+        else:
+            return None, None, None
      
     def save_best_model(self, model_state_dict):
 
@@ -377,12 +374,22 @@ class CheckpointSaverLoader:
         with open(metrics_path, "r") as f:
             metrics = json.load(f)
 
-        metrics["training losses"]["ce loss"].append(ce_loss)
-        metrics["training losses"]["mse loss"].append(mse_loss)
-        metrics["training losses"]["IoU loss"].append(IoU_loss)
-        metrics["training losses"]["scaled loss params"].append(scaled_loss_params)
-        metrics["training losses"]["scaled loss"].append(scaled_loss)
-        metrics["training losses"]["total loss"].append(total_loss)
+        if "training losses" in metrics.keys():
+            metrics["training losses"]["ce loss"].append(ce_loss)
+            metrics["training losses"]["mse loss"].append(mse_loss)
+            metrics["training losses"]["IoU loss"].append(IoU_loss)
+            metrics["training losses"]["scaled loss params"].append(scaled_loss_params)
+            metrics["training losses"]["scaled loss"].append(scaled_loss)
+            metrics["training losses"]["total loss"].append(total_loss)
+        else:
+            metrics["training losses"] = dict()
+            metrics["training losses"]["ce loss"] = [ce_loss]
+            metrics["training losses"]["mse loss"] = [mse_loss]
+            metrics["training losses"]["IoU loss"] = [IoU_loss]
+            metrics["training losses"]["scaled loss params"] = [scaled_loss_params]
+            metrics["training losses"]["scaled loss"] = [scaled_loss]
+            metrics["training losses"]["total loss"] = [total_loss]
+
 
         with open(metrics_path, "w") as f:
             json.dump(metrics, f)
@@ -404,7 +411,10 @@ class CheckpointSaverLoader:
         with open(metrics_path, "r") as f:
             metrics = json.load(f)
 
-        return metrics["num epochs"]
+        if "num epochs" in metrics.keys():
+            return metrics["num epochs"]
+        else:
+            return 0
     
     def save_early_stopping(self):
 
@@ -433,8 +443,11 @@ class CheckpointSaverLoader:
         with open(metrics_path, "r") as f:
             metrics = json.load(f)
 
-        threshold = metrics['early stop threshold']
-        return threshold
+        if "early stop threshold" in metrics.keys():
+            threshold = metrics['early stop threshold']
+            return threshold
+        else:
+            return 0
 
     def save_finished_training(self):
 
@@ -452,10 +465,17 @@ class CheckpointSaverLoader:
         with open(metrics_path, "r") as f:
             metrics = json.load(f)
 
-        metrics["validation losses"]["ce loss"].append(ce_loss)
-        metrics["validation losses"]["mse loss"].append(mse_loss)
-        metrics["validation losses"]["IoU loss"].append(IoU_loss)
-        metrics["validation losses"]["total loss"].append(total_loss)
+        if "validation losses" in metrics.keys():
+            metrics["validation losses"]["ce loss"].append(ce_loss)
+            metrics["validation losses"]["mse loss"].append(mse_loss)
+            metrics["validation losses"]["IoU loss"].append(IoU_loss)
+            metrics["validation losses"]["total loss"].append(total_loss)
+        else:
+            metrics["validation losses"] = dict()
+            metrics["validation losses"]["ce loss"] = [ce_loss]
+            metrics["validation losses"]["mse loss"] = [mse_loss]
+            metrics["validation losses"]["IoU loss"] = [IoU_loss]
+            metrics["validation losses"]["total loss"] = [total_loss]
 
         with open(metrics_path, "w") as f:
             json.dump(metrics, f)
@@ -466,9 +486,15 @@ class CheckpointSaverLoader:
         with open(metrics_path, "r") as f:
             metrics = json.load(f)
 
-        metrics["validation metrics"]["accuracy"].append(accuracy)
-        metrics["validation metrics"]["mean absolute error"].append(mae)
-        metrics["validation metrics"]["mean IoU loss"].append(IoU)
+        if "validation metrics" in metrics.keys():
+            metrics["validation metrics"]["accuracy"].append(accuracy)
+            metrics["validation metrics"]["mean absolute error"].append(mae)
+            metrics["validation metrics"]["mean IoU loss"].append(IoU)
+        else:
+            metrics["validation metrics"] = dict()
+            metrics["validation metrics"]["accuracy"] = [accuracy]
+            metrics["validation metrics"]["mean absolute error"] = [mae]
+            metrics["validation metrics"]["mean IoU loss"] = [IoU]
 
         with open(metrics_path, "w") as f:
             json.dump(metrics, f)
@@ -476,26 +502,44 @@ class CheckpointSaverLoader:
     def load_checkpoint(self):
 
         hp_folder = self.main_dir + "//" + self.curr_hp
-
-        metrics_path = hp_folder + "//metrics//metrics.json"
-        with open(metrics_path, "r") as f:
+        with open(hp_folder + "//metrics//metrics.json", "r") as f:
             metrics = json.load(f)
+        
+        finished_training = metrics["finished training"]
 
-        assert(metrics["finished training"] is False)
-        num_epochs = self.load_epoch()
-        best_vloss = min(metrics["validation losses"]["total loss"])
-        hpo_state = self.load_hpo_state()
+        if os.path.exists(hp_folder) and not finished_training:
+            metrics_path = hp_folder + "//metrics//metrics.json"
+            with open(metrics_path, "r") as f:
+                metrics = json.load(f)
 
-        current_model_state_dict, current_optimiser_state_dict, loss_scale_params = self.load_current_model_optimiser()
-        dh_state = self.load_data_handler_state()
+            num_epochs = self.load_epoch()
+            best_vloss = min(metrics["validation losses"]["total loss"]) if "validation losses" in metrics.keys() else torch.inf
+            hpo_state = self.load_hpo_state()
 
-        early_stop_threshold = self.load_early_threshold()
 
-        return {"current model state" : current_model_state_dict,
-                "current optimiser state" : current_optimiser_state_dict,
-                "early stop threshold" : early_stop_threshold, 
-                "num epochs" : num_epochs, 
-                "best vloss" : best_vloss, 
-                "hpo state" : hpo_state, 
-                "loss scale params": loss_scale_params, 
-                "dh state" : dh_state}
+            if os.path.exists(self.main_dir + "//" + self.curr_hp + "//models"):
+                current_model_state_dict, current_optimiser_state_dict, loss_scale_params = self.load_current_model_optimiser()
+            else:
+                current_model_state_dict, current_optimiser_state_dict, loss_scale_params = None, None, None
+            dh_state = self.load_data_handler_state()
+
+            early_stop_threshold = self.load_early_threshold()
+
+            return {"current model state" : current_model_state_dict,
+                    "current optimiser state" : current_optimiser_state_dict,
+                    "early stop threshold" : early_stop_threshold, 
+                    "num epochs" : num_epochs, 
+                    "best vloss" : best_vloss, 
+                    "hpo state" : hpo_state, 
+                    "loss scale params": loss_scale_params, 
+                    "dh state" : dh_state}
+        else:
+            hpo_state = self.load_hpo_state()
+            return {"current model state": None, 
+                    "current optimiser state": None, 
+                    "early stop threshold": None, 
+                    "num epochs": None, 
+                    "best vloss": None, 
+                    "hpo state": hpo_state, 
+                    "loss scale params": None, 
+                    "dh state": None}
